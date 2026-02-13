@@ -1,0 +1,17 @@
+# Secrets (パスワード等の機密情報)
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# 一時ファイル
+*.tmp
