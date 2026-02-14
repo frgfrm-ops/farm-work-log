@@ -257,10 +257,14 @@ def page_crop_cycles():
             logs = db.get_work_logs_by_cycle(cy["id"])
             if logs:
                 st.write(f"**作業記録:** {len(logs)} 件")
-                log_df = pd.DataFrame(logs)[
-                    ["work_date", "work_type", "content", "note"]
-                ]
-                log_df.columns = ["日付", "作業", "内容", "備考"]
+                log_df = pd.DataFrame(logs)
+                log_display = ["work_date", "work_type", "cell_pot", "quantity", "content", "note"]
+                log_existing = [c for c in log_display if c in log_df.columns]
+                log_df = log_df[log_existing]
+                log_rename = {"work_date": "日付", "work_type": "作業",
+                              "cell_pot": "セル・ポット", "quantity": "数量",
+                              "content": "内容", "note": "備考"}
+                log_df.rename(columns=log_rename, inplace=True)
                 st.dataframe(log_df, use_container_width=True, hide_index=True)
 
             if st.button("📅 タイムラインを見る", key=f"tl_{cy['id']}"):
@@ -357,10 +361,22 @@ def page_timeline():
             else ""
         )
         content_text = log.get("content") or ""
+        cell_pot_text = log.get("cell_pot") or ""
+        quantity_text = log.get("quantity") or ""
+        detail_parts = []
+        if cell_pot_text:
+            detail_parts.append(f"📦 {cell_pot_text}")
+        if quantity_text:
+            detail_parts.append(f"🔢 {quantity_text}")
+        detail_html = (
+            f'<div class="tl-note">{" ／ ".join(detail_parts)}</div>'
+            if detail_parts else ""
+        )
         html += f"""
         <div class="tl-item">
             <div class="tl-date">{log['work_date']}</div>
             <span class="tl-type">{log['work_type']}</span>
+            {detail_html}
             <div class="tl-content">{content_text}</div>
             {note_html}
         </div>
@@ -463,6 +479,12 @@ def page_work_log_input():
         else:
             work_type = type_choice
 
+        fc_cp1, fc_cp2 = st.columns(2)
+        with fc_cp1:
+            cell_pot = st.text_input("セル・ポット", placeholder="例: 128セル, 5x5セル, 7.5cmポット")
+        with fc_cp2:
+            quantity = st.text_input("数量", placeholder="例: 200, 3袋, 5kg")
+
         fc3, fc4 = st.columns(2)
         with fc3:
             field_id = st.text_input("圃場ID", placeholder="例: d01, hs01")
@@ -488,6 +510,8 @@ def page_work_log_input():
                     work_date=work_date.strftime("%Y-%m-%d"),
                     work_type=work_type,
                     cycle_id=cycle_id if cycle_id != 0 else None,
+                    cell_pot=cell_pot or None,
+                    quantity=quantity or None,
                     field_id=field_id or None,
                     row_id=row_id or None,
                     content=content or None,
@@ -501,12 +525,13 @@ def page_work_log_input():
     recent = db.get_recent_work_logs(limit=20)
     if recent:
         df = pd.DataFrame(recent)
-        display_cols = ["id", "work_date", "work_type", "crop_name",
-                        "field_id", "content", "note"]
+        display_cols = ["id", "work_date", "work_type", "cell_pot", "quantity",
+                        "crop_name", "field_id", "content", "note"]
         existing_cols = [c for c in display_cols if c in df.columns]
         display_df = df[existing_cols].copy()
         col_rename = {
             "id": "ID", "work_date": "日付", "work_type": "作業",
+            "cell_pot": "セル・ポット", "quantity": "数量",
             "crop_name": "作付け", "field_id": "圃場",
             "content": "内容", "note": "備考",
         }
@@ -932,12 +957,13 @@ def page_work_log_list():
     if logs:
         st.caption(f"{len(logs)} 件の作業記録")
         df = pd.DataFrame(logs)
-        display_cols = ["id", "work_date", "work_type", "crop_name",
-                        "field_id", "content", "note"]
+        display_cols = ["id", "work_date", "work_type", "cell_pot", "quantity",
+                        "crop_name", "field_id", "content", "note"]
         existing_cols = [c for c in display_cols if c in df.columns]
         display_df = df[existing_cols].copy()
         col_rename = {
             "id": "ID", "work_date": "日付", "work_type": "作業",
+            "cell_pot": "セル・ポット", "quantity": "数量",
             "crop_name": "作付け", "field_id": "圃場",
             "content": "内容", "note": "備考",
         }

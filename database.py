@@ -49,6 +49,8 @@ def init_db():
             cycle_id INTEGER REFERENCES crop_cycles(id) ON DELETE SET NULL,
             work_date TEXT NOT NULL,
             work_type TEXT NOT NULL,
+            cell_pot TEXT,
+            quantity TEXT,
             field_id TEXT,
             row_id TEXT,
             content TEXT,
@@ -56,6 +58,15 @@ def init_db():
             created_at TEXT DEFAULT (datetime('now', 'localtime'))
         )
     """)
+
+    # 既存DBへのカラム追加（テーブルが既に存在する場合）
+    for col_name, col_type in [("cell_pot", "TEXT"), ("quantity", "TEXT")]:
+        try:
+            cursor.execute(
+                f"ALTER TABLE work_logs ADD COLUMN {col_name} {col_type}"
+            )
+        except Exception:
+            pass  # カラムが既に存在する場合はスキップ
 
     conn.commit()
     conn.close()
@@ -152,15 +163,18 @@ def delete_crop_cycle(cycle_id):
 # 作業記録 (Work Logs) CRUD
 # ============================================================
 
-def create_work_log(work_date, work_type, cycle_id=None, field_id=None,
+def create_work_log(work_date, work_type, cycle_id=None, cell_pot=None,
+                    quantity=None, field_id=None,
                     row_id=None, content=None, note=None):
     """作業記録を新規作成"""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO work_logs (cycle_id, work_date, work_type, field_id, row_id, content, note)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (cycle_id, work_date, work_type, field_id, row_id, content, note))
+        INSERT INTO work_logs (cycle_id, work_date, work_type, cell_pot, quantity,
+                               field_id, row_id, content, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (cycle_id, work_date, work_type, cell_pot, quantity,
+          field_id, row_id, content, note))
     log_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -419,11 +433,14 @@ def import_csv_records(records):
     for rec in records:
         cursor.execute("""
             INSERT INTO work_logs
-                (work_date, work_type, field_id, row_id, content, note)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (work_date, work_type, cell_pot, quantity,
+                 field_id, row_id, content, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             rec.get("work_date", ""),
             rec.get("work_type", "その他"),
+            rec.get("cell_pot"),
+            rec.get("quantity"),
             rec.get("field_id"),
             rec.get("row_id"),
             rec.get("content"),
