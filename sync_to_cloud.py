@@ -25,13 +25,25 @@ if not os.path.exists("farm_records.db"):
     input("Enter キーで終了...")
     sys.exit(1)
 
-print("📦 データベースをクラウドに同期します...")
+print("📦 変更をクラウドに同期します...")
 print()
 
 try:
-    # git add
-    result = subprocess.run(["git", "add", "farm_records.db"],
-                            capture_output=True, text=True)
+    # git add (すべての関連ファイルをまとめて追加)
+    add_files = [
+        "app.py", "database.py", "requirements.txt",
+        "start.py", "sync_to_cloud.py",
+        ".gitignore", os.path.join(".streamlit", "config.toml"),
+    ]
+    # 存在するファイルのみ追加
+    if os.path.exists("farm_records.db"):
+        add_files.append("farm_records.db")
+    for bat in ["起動.bat", "クラウド同期.bat"]:
+        if os.path.exists(bat):
+            add_files.append(bat)
+
+    result = subprocess.run(["git", "add"] + add_files,
+                            capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0:
         print(f"❌ git add に失敗: {result.stderr}")
         input("Enter キーで終了...")
@@ -39,11 +51,12 @@ try:
 
     # git commit
     result = subprocess.run(
-        ["git", "commit", "-m", "データベース更新（同期）"],
-        capture_output=True, text=True
+        ["git", "commit", "-m", "update: sync to cloud"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
     if result.returncode != 0:
-        if "nothing to commit" in result.stdout or "nothing to commit" in result.stderr:
+        out = (result.stdout or "") + (result.stderr or "")
+        if "nothing to commit" in out or "nothing added to commit" in out:
             print("ℹ️  変更がありません。データは最新です。")
             input("Enter キーで終了...")
             sys.exit(0)
@@ -54,7 +67,7 @@ try:
     # git push
     print("☁️  GitHubにプッシュ中...")
     result = subprocess.run(["git", "push"],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0:
         print(f"❌ git push に失敗: {result.stderr}")
         input("Enter キーで終了...")
