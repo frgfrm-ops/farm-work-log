@@ -127,7 +127,8 @@ WORK_TYPES = [
     "観察・記録", "機械整備", "その他",
 ]
 
-STATUS_OPTIONS = ["計画中", "進行中", "完了"]
+STATUS_OPTIONS = ["育苗中", "まもなく収穫開始", "収穫中", "まもなく収穫終了", "終了", "計画中"]
+ACTIVE_STATUS_OPTIONS = ["育苗中", "まもなく収穫開始", "収穫中", "まもなく収穫終了"]
 QUALITY_OPTIONS = ["", "A", "B", "C"]
 
 # ============================================================
@@ -148,7 +149,14 @@ if "page" not in st.session_state:
 # ============================================================
 def status_badge(status):
     """ステータスに応じたバッジHTMLを返す"""
-    cls = {"計画中": "badge-plan", "進行中": "badge-active", "完了": "badge-done"}
+    cls = {
+        "計画中": "badge-plan",
+        "終了": "badge-done",
+        "育苗中": "badge-active",
+        "まもなく収穫開始": "badge-active",
+        "収穫中": "badge-active",
+        "まもなく収穫終了": "badge-active",
+    }
     return f'<span class="badge {cls.get(status, "")}">{status}</span>'
 
 
@@ -180,7 +188,7 @@ def page_dashboard():
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("作付け総数", stats["total_cycles"])
     c2.metric("進行中", stats["active_cycles"])
-    c3.metric("完了", stats["completed_cycles"])
+    c3.metric("終了", stats["completed_cycles"])
     c4.metric("作業記録数", stats["total_logs"])
 
     st.divider()
@@ -190,7 +198,10 @@ def page_dashboard():
     # 進行中の作付け
     with col_left:
         st.subheader("🌱 進行中の作付け")
-        active = db.get_all_crop_cycles(status_filter="進行中")
+        active = [
+            cy for cy in db.get_all_crop_cycles()
+            if cy.get("status") in ACTIVE_STATUS_OPTIONS
+        ]
         if active:
             for cy in active[:10]:
                 logs = db.get_work_logs_by_cycle(cy["id"])

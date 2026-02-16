@@ -32,7 +32,7 @@ def init_db():
             row_id TEXT,
             start_date TEXT,
             end_date TEXT,
-            status TEXT DEFAULT '進行中' CHECK(status IN ('計画中', '進行中', '完了')),
+            status TEXT DEFAULT '計画中' CHECK(status IN ('育苗中', 'まもなく収穫開始', '収穫中', 'まもなく収穫終了', '終了', '計画中')),
             yield_amount REAL,
             yield_unit TEXT DEFAULT 'kg',
             quality_rating TEXT,
@@ -42,6 +42,52 @@ def init_db():
             updated_at TEXT DEFAULT (datetime('now', 'localtime'))
         )
     """)
+
+    # 既存DBのstatus制約を新仕様へ移行
+    cursor.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='crop_cycles'"
+    )
+    row = cursor.fetchone()
+    create_sql = (row["sql"] if row and row["sql"] else "")
+    old_check = "CHECK(status IN ('計画中', '進行中', '完了'))"
+    if old_check in create_sql:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        cursor.execute("ALTER TABLE crop_cycles RENAME TO crop_cycles_old")
+        cursor.execute("""
+            CREATE TABLE crop_cycles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                crop_name TEXT NOT NULL,
+                variety TEXT,
+                field_id TEXT,
+                row_id TEXT,
+                start_date TEXT,
+                end_date TEXT,
+                status TEXT DEFAULT '計画中' CHECK(status IN ('育苗中', 'まもなく収穫開始', '収穫中', 'まもなく収穫終了', '終了', '計画中')),
+                yield_amount REAL,
+                yield_unit TEXT DEFAULT 'kg',
+                quality_rating TEXT,
+                quality_note TEXT,
+                comment TEXT,
+                created_at TEXT DEFAULT (datetime('now', 'localtime')),
+                updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO crop_cycles
+                (id, crop_name, variety, field_id, row_id, start_date, end_date, status,
+                 yield_amount, yield_unit, quality_rating, quality_note, comment, created_at, updated_at)
+            SELECT
+                id, crop_name, variety, field_id, row_id, start_date, end_date,
+                CASE
+                    WHEN status = '進行中' THEN '育苗中'
+                    WHEN status = '完了' THEN '終了'
+                    ELSE status
+                END AS status,
+                yield_amount, yield_unit, quality_rating, quality_note, comment, created_at, updated_at
+            FROM crop_cycles_old
+        """)
+        cursor.execute("DROP TABLE crop_cycles_old")
+        conn.execute("PRAGMA foreign_keys = ON")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS work_logs (
@@ -77,7 +123,7 @@ def init_db():
 # ============================================================
 
 def create_crop_cycle(crop_name, variety=None, field_id=None, row_id=None,
-                      start_date=None, end_date=None, status="進行中",
+                      start_date=None, end_date=None, status="計画中",
                       yield_amount=None, yield_unit="kg",
                       quality_rating=None, quality_note=None, comment=None):
     """作付けを新規作成"""
@@ -295,10 +341,13 @@ def get_dashboard_stats():
     cursor.execute("SELECT COUNT(*) FROM crop_cycles")
     stats["total_cycles"] = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM crop_cycles WHERE status = '進行中'")
+    cursor.execute("""
+        SELECT COUNT(*) FROM crop_cycles
+        WHERE status IN ('育苗中', 'まもなく収穫開始', '収穫中', 'まもなく収穫終了')
+    """)
     stats["active_cycles"] = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM crop_cycles WHERE status = '完了'")
+    cursor.execute("SELECT COUNT(*) FROM crop_cycles WHERE status = '終了'")
     stats["completed_cycles"] = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM work_logs")
