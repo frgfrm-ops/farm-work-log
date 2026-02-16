@@ -36,6 +36,15 @@ def _now_sql():
     return "CURRENT_TIMESTAMP" if using_postgres() else "datetime('now', 'localtime')"
 
 
+def _row_first_value(row):
+    """fetchone() の結果から先頭値をDB差異なく取得"""
+    if row is None:
+        return 0
+    if isinstance(row, dict):
+        return next(iter(row.values()))
+    return row[0]
+
+
 def get_connection():
     """データベース接続を取得"""
     if using_postgres():
@@ -442,22 +451,22 @@ def get_dashboard_stats():
     stats = {}
 
     cursor.execute("SELECT COUNT(*) FROM crop_cycles")
-    stats["total_cycles"] = cursor.fetchone()[0]
+    stats["total_cycles"] = _row_first_value(cursor.fetchone())
 
     cursor.execute("""
         SELECT COUNT(*) FROM crop_cycles
         WHERE status IN ('育苗中', 'まもなく収穫開始', '収穫中', 'まもなく収穫終了')
     """)
-    stats["active_cycles"] = cursor.fetchone()[0]
+    stats["active_cycles"] = _row_first_value(cursor.fetchone())
 
     cursor.execute("SELECT COUNT(*) FROM crop_cycles WHERE status = '終了'")
-    stats["completed_cycles"] = cursor.fetchone()[0]
+    stats["completed_cycles"] = _row_first_value(cursor.fetchone())
 
     cursor.execute("SELECT COUNT(*) FROM work_logs")
-    stats["total_logs"] = cursor.fetchone()[0]
+    stats["total_logs"] = _row_first_value(cursor.fetchone())
 
     cursor.execute("SELECT COUNT(DISTINCT crop_name) FROM crop_cycles")
-    stats["crop_types"] = cursor.fetchone()[0]
+    stats["crop_types"] = _row_first_value(cursor.fetchone())
 
     conn.close()
     return stats
