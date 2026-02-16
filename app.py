@@ -273,6 +273,34 @@ def page_crop_cycles():
 
 
 # ============================================================
+# ページ: 作付け一覧（簡易）
+# ============================================================
+def page_crop_cycles_simple():
+    st.header("🌱 作付け一覧（簡易）")
+
+    status_f = st.selectbox("ステータス", ["すべて"] + STATUS_OPTIONS, key="simple_status")
+    cycles = db.get_all_crop_cycles(status_filter=status_f)
+
+    if not cycles:
+        st.info("該当する作付けがありません")
+        return
+
+    st.caption(f"{len(cycles)} 件の作付け")
+
+    for cy in cycles:
+        variety_text = f"（{cy['variety']}）" if cy.get("variety") else ""
+        title = f"{cy['crop_name']}{variety_text}"
+        field_info = f"📍 {cy['field_id']}" if cy.get("field_id") else "📍 圃場未設定"
+        period = f"{cy.get('start_date') or '?'} ～ {cy.get('end_date') or '継続中'}"
+        st.markdown(
+            f"**{title}**　{field_info}　｜　{period}　",
+            help=f"ステータス: {cy['status']}",
+        )
+        st.markdown(status_badge(cy["status"]), unsafe_allow_html=True)
+        st.divider()
+
+
+# ============================================================
 # ページ: タイムライン
 # ============================================================
 def page_timeline():
@@ -985,6 +1013,7 @@ with st.sidebar:
     view_pages = [
         "📊 ダッシュボード",
         "🌱 作付け一覧",
+        "🌱 作付け一覧（簡易）",
         "📅 タイムライン",
         "📋 作業記録一覧",
         "📈 集計・分析",
@@ -1037,6 +1066,8 @@ if page == "📊 ダッシュボード":
     page_dashboard()
 elif page == "🌱 作付け一覧":
     page_crop_cycles()
+elif page == "🌱 作付け一覧（簡易）":
+    page_crop_cycles_simple()
 elif page == "📅 タイムライン":
     page_timeline()
 elif page == "📋 作業記録一覧":
