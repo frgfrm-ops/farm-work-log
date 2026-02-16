@@ -9,6 +9,7 @@ from datetime import datetime, date, timedelta
 import database as db
 import io
 import plotly.express as px
+import os
 
 # ============================================================
 # アプリケーション設定
@@ -116,6 +117,22 @@ try:
     ADMIN_PASSWORD = st.secrets["admin_password"]
 except (FileNotFoundError, KeyError):
     ADMIN_PASSWORD = "farm2026"
+
+# クラウドで入力可能にするには secrets に database_url を設定する
+try:
+    if st.secrets.get("database_url"):
+        os.environ["DATABASE_URL"] = st.secrets["database_url"]
+except Exception:
+    pass
+
+# 運用方針: クラウド版のみ運用
+CLOUD_ONLY_MODE = True
+if CLOUD_ONLY_MODE and not os.getenv("DATABASE_URL"):
+    st.error(
+        "このアプリはクラウドDB前提で動作します。"
+        "Streamlit Secrets に `database_url` を設定してください。"
+    )
+    st.stop()
 
 WORK_TYPES = [
     "播種","播種セル","播種ポット", "育苗", "定植",
