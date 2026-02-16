@@ -20,6 +20,20 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
+def _is_simple_only_mode():
+    """URLクエリで簡易一覧のみ表示するモードか判定"""
+    try:
+        qp = st.query_params.get("view", "")
+    except Exception:
+        return False
+    if isinstance(qp, list):
+        qp = qp[0] if qp else ""
+    return str(qp).strip().lower() in {"simple", "cycles", "list"}
+
+
+SIMPLE_ONLY_MODE = _is_simple_only_mode()
+
 # ============================================================
 # カスタムCSS
 # ============================================================
@@ -84,6 +98,15 @@ st.markdown("""
     .cycle-meta { font-size: 0.85em; color: #777; }
 </style>
 """, unsafe_allow_html=True)
+
+if SIMPLE_ONLY_MODE:
+    # 閲覧専用リンクではサイドバー・展開ボタンを非表示
+    st.markdown("""
+    <style>
+        [data-testid="stSidebar"] { display: none !important; }
+        [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ============================================================
 # 定数
@@ -1004,65 +1027,68 @@ def page_work_log_list():
 # ============================================================
 # サイドバー & ルーティング
 # ============================================================
-with st.sidebar:
-    st.markdown("## 🌾 農作業記録簿")
-    st.divider()
+if not SIMPLE_ONLY_MODE:
+    with st.sidebar:
+        st.markdown("## 🌾 農作業記録簿")
+        st.divider()
 
-    # 閲覧メニュー
-    st.markdown("### 📖 閲覧")
-    view_pages = [
-        "📊 ダッシュボード",
-        "🌱 作付け一覧",
-        "🌱 作付け一覧（簡易）",
-        "📅 タイムライン",
-        "📋 作業記録一覧",
-        "📈 集計・分析",
-    ]
-    for p in view_pages:
-        if st.button(p, key=f"nav_{p}", use_container_width=True):
-            st.session_state.page = p
-
-    st.divider()
-
-    # 管理者セクション
-    if not st.session_state.admin_mode:
-        st.markdown("### 🔒 管理者")
-        pw = st.text_input("パスワード", type="password", key="admin_pw")
-        if st.button("ログイン", key="login_btn"):
-            if pw == ADMIN_PASSWORD:
-                st.session_state.admin_mode = True
-                st.rerun()
-            else:
-                st.error("パスワードが違います")
-    else:
-        st.markdown("### 🔓 管理者メニュー")
-        admin_pages = [
-            "📝 作業記録入力",
-            "🌱 作付け登録・編集",
-            "📥 CSVインポート",
+        # 閲覧メニュー
+        st.markdown("### 📖 閲覧")
+        view_pages = [
+            "📊 ダッシュボード",
+            "🌱 作付け一覧",
+            "🌱 作付け一覧（簡易）",
+            "📅 タイムライン",
+            "📋 作業記録一覧",
+            "📈 集計・分析",
         ]
-        for p in admin_pages:
+        for p in view_pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
                 st.session_state.page = p
 
         st.divider()
-        if st.button("🚪 ログアウト", key="logout_btn"):
-            st.session_state.admin_mode = False
-            st.session_state.page = "📊 ダッシュボード"
-            st.rerun()
 
-    # フッター
-    st.divider()
-    st.caption("農作業記録簿 v1.0")
-    if st.session_state.admin_mode:
-        st.caption("ローカル初期PW: farm2026")
+        # 管理者セクション
+        if not st.session_state.admin_mode:
+            st.markdown("### 🔒 管理者")
+            pw = st.text_input("パスワード", type="password", key="admin_pw")
+            if st.button("ログイン", key="login_btn"):
+                if pw == ADMIN_PASSWORD:
+                    st.session_state.admin_mode = True
+                    st.rerun()
+                else:
+                    st.error("パスワードが違います")
+        else:
+            st.markdown("### 🔓 管理者メニュー")
+            admin_pages = [
+                "📝 作業記録入力",
+                "🌱 作付け登録・編集",
+                "📥 CSVインポート",
+            ]
+            for p in admin_pages:
+                if st.button(p, key=f"nav_{p}", use_container_width=True):
+                    st.session_state.page = p
+
+            st.divider()
+            if st.button("🚪 ログアウト", key="logout_btn"):
+                st.session_state.admin_mode = False
+                st.session_state.page = "📊 ダッシュボード"
+                st.rerun()
+
+        # フッター
+        st.divider()
+        st.caption("農作業記録簿 v1.0")
+        if st.session_state.admin_mode:
+            st.caption("ローカル初期PW: farm2026")
 
 # ============================================================
 # ページルーティング
 # ============================================================
 page = st.session_state.page
 
-if page == "📊 ダッシュボード":
+if SIMPLE_ONLY_MODE:
+    page_crop_cycles_simple()
+elif page == "📊 ダッシュボード":
     page_dashboard()
 elif page == "🌱 作付け一覧":
     page_crop_cycles()
